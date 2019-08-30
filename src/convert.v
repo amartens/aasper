@@ -126,7 +126,7 @@ module convert #(
        output value: MSB         |pppabcd|      LSB
     */
 
-    else if ((MSB_OUT > MSB_IN) && (MSB_OUT > LSB_IN) && (LSB_OUT < MSB_IN) && (LSB_OUT == MSB_IN)) begin:d
+    else if ((MSB_OUT > MSB_IN) && (MSB_OUT > LSB_IN) && (LSB_OUT < MSB_IN) && (LSB_OUT == LSB_IN)) begin:d
       /*TODO sign extension*/
       wire [MSB_OUT-MSB_IN-1:0] padding = {(MSB_OUT-MSB_IN){1'b0}};
       assign dout = {padding,din};
@@ -137,6 +137,9 @@ module convert #(
        input value:  MSB            |abcd|      LSB
        output value: MSB            |abcd|      LSB
     */
+    else if ((MSB_OUT == MSB_IN) && (MSB_OUT > LSB_IN) && (LSB_OUT < MSB_IN) && (LSB_OUT == LSB_IN)) begin:e
+      assign dout = din;
+    end /*e*/
 
     /*
     f. The output value space lies within the input word space
@@ -156,6 +159,12 @@ module convert #(
        input value:  MSB            |abcd|      LSB
        output value: MSB            | bcd|      LSB
     */
+    else if ((MSB_OUT < MSB_IN) && (MSB_OUT > LSB_IN) && (LSB_OUT <= MSB_IN) && (LSB_OUT > LSB_IN)) begin:g
+      wire[N_BITS_OUT-1:0] overlap = din[N_BITS_IN-(MSB_OUT-MSB_IN):N_BITS_IN-N_BITS_OUT];
+      /*TODO rounding*/
+      /*TODO saturation*/
+      assign dout = {overlap};
+    end /*g*/
 
     /*
     h. The MSB is within, and LSB below
