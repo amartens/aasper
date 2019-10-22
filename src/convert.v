@@ -30,37 +30,44 @@ module convert #(
   /*
     There are many possible scenarios when converting between bit widths
     a. The output value space lies totally above the input value space
-       Output value: padding
+       output: padding
+       requires:
        input value:  MSB            |abcd|      LSB
        output value: MSB      |pppp|            LSB
          
     b. The output value space lies above, but adjacent to the input value space
-       Output value: padding, rounding, sign extension
+       output: padding
+       requires: rounding, sign extension
        input value:  MSB            |abcd|      LSB
        output value: MSB       |ppppr|          LSB
 
     c. Part of the output value space is above, but the rest is within
-       Output value: padding, partial input value, rounding, sign extension
+       output: padding, partial input value
+       requires: rounding, sign extension
        input value:  MSB            |abcd|      LSB
        output value: MSB         |pppabr|       LSB
 
     d. The output value space is above and includes the input space
-       Output value: padding, input value, sign extension
+       output: padding, input value 
+       requires: sign extension
        input value:  MSB            |abcd|      LSB
        output value: MSB         |pppabcd|      LSB
     
     e. The output value space is the same as the input value space
-       Output value: input value
+       output: input value
+       requires:
        input value:  MSB            |abcd|      LSB
        output value: MSB            |abcd|      LSB
     
     f. The output value space lies within the input word space
-       Output value: partial input value, rounding, saturation 
+       output: partial input value
+       requires: rounding, saturation 
        input value:  MSB            |abcd|      LSB
        output value: MSB            |abr|       LSB
     
     g. The output value space lies within the input word space
-       Output value: partial input value, possible saturation
+       output: partial input value
+       requires: saturation
        input value:  MSB            |abcd|      LSB
        output value: MSB            | bcd|      LSB
    
@@ -70,12 +77,14 @@ module convert #(
        output value: MSB             |bcdppp|   LSB
 
     i. The output word is wholly below the input word
-       Output value: padding, possible saturation
+       output: padding
+       requires: saturation
        input value:  MSB            |abcd|      LSB
        output value: MSB                  |ppp| LSB
     
     j. The input word is wholly contained within the output word 
-       Output value: input value, padding, sign extension
+       output: input value, padding 
+       requires: sign extension
        input value:  MSB            |abcd|      LSB
        output value: MSB          |ppabcdppp|   LSB
   */
@@ -85,7 +94,7 @@ module convert #(
   generate
     /*
     a. The output value space lies totally above the input value space
-       Output value: padding
+       output: padding
        input value:  MSB            |abcd|      LSB
        output value: MSB      |pppp|            LSB
     */
@@ -96,7 +105,8 @@ module convert #(
     end /*a*/
     /*
     b. The output value space lies above, but adjacent to the input value space
-       Output value: padding, rounding, sign extension
+       output: padding, 
+       requires: rounding, sign extension
        input value:  MSB            |abcd|      LSB
        output value: MSB       |ppppr|          LSB
     */
@@ -113,15 +123,16 @@ module convert #(
        output value: MSB         |pppabr|       LSB
     */
     else if ((MSB_OUT > MSB_IN) && (MSB_OUT > LSB_IN) && (LSB_OUT < MSB_IN) && (LSB_OUT > LSB_IN)) begin:c
-      /*TODO sign extension*/
       wire [MSB_OUT-MSB_IN-1:0] padding = {(MSB_OUT-MSB_IN){1'b0}};
-      wire [MSB_IN-LSB_OUT-1:0] overlap = din[N_BITS_IN-1:LSB_OUT-LSB_IN];
+      wire [MSB_IN-LSB_OUT:0] overlap = din[N_BITS_IN-1:N_BITS_IN-(LSB_OUT-LSB_IN)];
       /*TODO rounding */
+      /*TODO sign extension*/
       assign dout = {padding,overlap};
     end /*c*/ 
     /* 
     d. The output value space is above and includes the input space
-       Output value: padding, input value, sign extension
+       output: padding, input value
+       requires: sign extension
        input value:  MSB            |abcd|      LSB
        output value: MSB         |pppabcd|      LSB
     */
@@ -133,7 +144,8 @@ module convert #(
     end /*d*/
     /* 
     e. The output value space is the same as the input value space
-       Output value: input value
+       output: input value
+       requires:
        input value:  MSB            |abcd|      LSB
        output value: MSB            |abcd|      LSB
     */
@@ -143,58 +155,76 @@ module convert #(
 
     /*
     f. The output value space lies within the input word space
-       Output value: partial input value, rounding, saturation 
+       output: partial input value
+       requires: rounding, saturation 
        input value:  MSB            |abcd|      LSB
        output value: MSB            |abr|       LSB
     */
     else if ((MSB_OUT == MSB_IN) && (MSB_OUT > LSB_IN) && (LSB_OUT < MSB_IN) && (LSB_OUT > LSB_IN)) begin:f
-      wire[N_BITS_OUT-1:0] overlap = din[N_BITS_IN-1:N_BITS_IN-N_BITS_OUT];
+      wire[N_BITS_OUT-1:0] overlap = din[N_BITS_IN-1:N_BITS_IN-(LSB_OUT-LSB_IN)];
       /*TODO rounding*/
       /*TODO saturation*/
       assign dout = {overlap};
     end /*f*/
     /*
     g. The output value space lies within the input word space
-       Output value: partial input value, possible saturation
+       output: partial input value
+       requires: saturation
        input value:  MSB            |abcd|      LSB
-       output value: MSB            | bcd|      LSB
+       output value: MSB            | bc |      LSB
     */
-    else if ((MSB_OUT < MSB_IN) && (MSB_OUT > LSB_IN) && (LSB_OUT <= MSB_IN) && (LSB_OUT > LSB_IN)) begin:g
-      wire[N_BITS_OUT-1:0] overlap = din[N_BITS_IN-(MSB_OUT-MSB_IN):N_BITS_IN-N_BITS_OUT];
+    else if ((MSB_OUT < MSB_IN) && (MSB_OUT > LSB_IN) && (LSB_OUT < MSB_IN) && (LSB_OUT > LSB_IN)) begin:g
+      wire[N_BITS_OUT-1:0] overlap = din[N_BITS_IN-(MSB_OUT-MSB_IN):N_BITS_IN-(LSB_OUT-LSB_IN)];
       /*TODO rounding*/
       /*TODO saturation*/
       assign dout = {overlap};
     end /*g*/
+    
+    /*
+    h. The output value space lies within the input word space aligned at the LSBs 
+       output: partial input value
+       requires: saturation
+       input value:  MSB            |abcd|      LSB
+       output value: MSB            | bcd|      LSB
+    */
+    else if ((MSB_OUT < MSB_IN) && (MSB_OUT > LSB_IN) && (LSB_OUT < MSB_IN) && (LSB_OUT == LSB_IN)) begin:h
+      wire[N_BITS_OUT-1:0] overlap = din[N_BITS_IN-(MSB_OUT-MSB_IN):N_BITS_IN-N_BITS_OUT];
+      /*TODO rounding*/
+      /*TODO saturation*/
+      assign dout = {overlap};
+    end /*h*/
 
     /*
-    h. The MSB is within, and LSB below
-       Output value: partial input value, padding, saturation
-       The value may be saturated
+    i. The MSB is within, and LSB below
+       output: partial input value, padding
+       requires: saturation
        input value:  MSB            |abcd|      LSB
        output value: MSB             |bcdppp|   LSB
     */
-    else if ((MSB_OUT < MSB_IN) && (MSB_OUT > LSB_IN) && (LSB_OUT < MSB_IN) && (LSB_OUT < LSB_IN)) begin:h
+    else if ((MSB_OUT < MSB_IN) && (MSB_OUT > LSB_IN) && (LSB_OUT < MSB_IN) && (LSB_OUT < LSB_IN)) begin:i
       wire[LSB_IN-LSB_OUT-1:0] padding = {{LSB_IN-LSB_OUT}{1'b0}};
       wire[N_BITS_IN-(MSB_IN-MSB_OUT)-1:0] overlap = din[N_BITS_IN-(MSB_IN-MSB_OUT)-1:0];
-      /*TODO saturate*/
+      /*TODO saturation*/
       assign dout = {overlap,padding};
-    end /*h*/
+    end /*i*/
     /*
-    i. The output word is wholly below the input word
-       Output value: padding, possible saturation
+    j. The output word is wholly below the input word
+       output: padding
+       requires: saturation
        input value:  MSB            |abcd|      LSB
        output value: MSB                  |ppp| LSB
     */
-    else if ((MSB_OUT < MSB_IN) && (MSB_OUT < LSB_IN) && (LSB_OUT < MSB_IN) && (LSB_OUT < LSB_IN)) begin:i
-    end /*i*/
+    else if ((MSB_OUT < MSB_IN) && (MSB_OUT < LSB_IN) && (LSB_OUT < MSB_IN) && (LSB_OUT < LSB_IN)) begin:j
+    end /*j*/
     /*
-    j. The input word is wholly contained within the output word 
-       Output value: input value, padding, sign extension
+    k. The input word is wholly contained within the output word 
+       output: input value, padding
+       requires: sign extension
        input value:  MSB            |abcd|      LSB
        output value: MSB          |ppabcdppp|   LSB
     */
-    else if ((MSB_OUT > MSB_IN) && (MSB_OUT > LSB_IN) && (LSB_OUT < MSB_IN) && (LSB_OUT < LSB_IN)) begin:j
-    end /*j*/
+    else if ((MSB_OUT > MSB_IN) && (MSB_OUT > LSB_IN) && (LSB_OUT < MSB_IN) && (LSB_OUT < LSB_IN)) begin:k
+    end /*k*/
   endgenerate
 
 endmodule /*convert*/

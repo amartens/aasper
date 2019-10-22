@@ -23,7 +23,8 @@ module test #(
 
   always @* begin
     if (dout !== expected) begin
-      $display("ERROR: N_BITS_IN: %d BIN_PT_IN: %d N_BITS_OUT: %d BIN_PT_OUT: %d", N_BITS_IN, BIN_PT_IN, N_BITS_OUT, BIN_PT_OUT);
+      $display("ERROR: N_BITS_IN:\t %d BIN_PT_IN:\t %d", N_BITS_IN, BIN_PT_IN); 
+      $display("ERROR: N_BITS_OUT:\t %d BIN_PT_OUT:\t %d", N_BITS_OUT, BIN_PT_OUT); 
       $display("%g: din = %1bb, dout = %1bb, expected = %1bb", $time, din, dout, expected); 
     end
   end
@@ -111,10 +112,91 @@ begin
      expected_c0 =  4'b0000;
 #10; din_c0 =       4'b0010;      //0.125
      expected_c0 =  4'b0000;
-/*TODO rounding */ 
 #20; din_c0 =       4'b0100;      //0.25
      expected_c0 =  4'b0001;
+/*TODO rounding */ 
 /*TODO sign extension */
+end /*initial*/
+
+/* d */
+/* 
+    d. The output value space is above and includes the input space
+       Output value: padding, input value, sign extension
+       input value:  MSB            |abcd|      LSB
+       output value: MSB         |pppabcd|      LSB
+*/
+/*
+ 2^  4 3 2 1 0,-1 -2 -3 -4
+ IN             a  b  c  d
+ OUT       e f  g  h  i  j 
+*/
+reg[4-1:0] din_d0 = 0;
+wire[6-1:0] dout_d0;
+reg[6-1:0] expected_d0 = 0;
+
+test #(
+  .N_BITS_IN(4), .BIN_PT_IN(4), .N_BITS_OUT(6), .BIN_PT_OUT(4)
+) uut_d (.din(din_d0), .dout(dout_d0), .expected(expected_d0));
+
+initial
+begin
+#0;  din_d0 =       4'b1001;     
+     expected_d0 =  6'b001001;
+/*TODO sign extension */
+end /*initial*/
+
+/* e */
+/* 
+    e. The output value space is the same as the input value space
+       Output value: input value
+       input value:  MSB            |abcd|      LSB
+       output value: MSB            |abcd|      LSB
+*/
+/*
+ 2^  4 3 2 1 0,-1 -2 -3 -4
+ IN                a  b  c 
+ OUT               d  e  f  
+*/
+reg[3-1:0] din_e0 = 0;
+wire[3-1:0] dout_e0;
+reg[3-1:0] expected_e0 = 0;
+
+test #(
+  .N_BITS_IN(3), .BIN_PT_IN(4), .N_BITS_OUT(3), .BIN_PT_OUT(4)
+) uut_e (.din(din_e0), .dout(dout_e0), .expected(expected_e0));
+
+initial
+begin
+#0;  din_e0 =       3'b101;     
+     expected_e0 =  3'b101;
+end /*initial*/
+
+/* f */
+    /*
+    f. The output value space lies within the input word space
+       output: partial input value
+       requires: rounding, saturation 
+       input value:  MSB            |abcd|      LSB
+       output value: MSB            |abr|       LSB
+    */
+/*
+ 2^  4 3 2 1 0,-1 -2 -3 -4
+ IN          a  b  c  d 
+ OUT         e  f  g
+*/
+reg[3-1:0] din_f0 = 0;
+wire[3-1:0] dout_f0;
+reg[3-1:0] expected_f0 = 0;
+
+test #(
+  .N_BITS_IN(4), .BIN_PT_IN(3), .N_BITS_OUT(3), .BIN_PT_OUT(2)
+) uut_f (.din(din_f0), .dout(dout_f0), .expected(expected_f0));
+
+initial
+begin
+#0;  din_f0 =       4'b1010;     
+     expected_e0 =  3'b101;
+/*TODO rounding*/
 end /*initial*/
 
 endmodule /*convert_tb*/
