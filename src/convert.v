@@ -22,6 +22,7 @@ module convert #(
   parameter BIN_PT_OUT = 3
 )(
   input [N_BITS_IN-1:0] din, 
+  output [4:0] mode,           
   output [N_BITS_OUT-1:0] dout
 );
   
@@ -102,7 +103,8 @@ module convert #(
        output value: MSB      |pppp|            LSB
     */
     if ((MSB_OUT > MSB_IN) && (MSB_OUT > LSB_IN) && (LSB_OUT > MSB_IN) && (LSB_OUT > LSB_IN) && ((LSB_OUT - MSB_IN) > 1)) begin:a
-      /*TODO sign extension*/  
+      assign mode = 5'd1;
+      /*TODO sign extension*/
       wire[N_BITS_OUT-1:0] padding = {N_BITS_OUT{1'b0}};
       assign dout = {padding};
     end /*a*/
@@ -113,6 +115,7 @@ module convert #(
        output value: MSB       |ppppr|          LSB
     */
     else if ((MSB_OUT > MSB_IN) && (MSB_OUT > LSB_IN) && (LSB_OUT > MSB_IN) && (LSB_OUT > LSB_IN) && ((LSB_OUT - MSB_IN) == 1)) begin:b
+      assign mode = 5'd2;
       /*TODO sign extension*/
       /*TODO rounding*/
       wire[N_BITS_OUT-1:0] padding = {N_BITS_OUT{1'b0}};
@@ -125,10 +128,11 @@ module convert #(
        output value: MSB         |pppabr|       LSB
     */
     else if ((MSB_OUT > MSB_IN) && (MSB_OUT > LSB_IN) && (LSB_OUT < MSB_IN) && (LSB_OUT > LSB_IN)) begin:c
+      assign mode = 5'd3;
       /*TODO sign extension*/
+      /*TODO rounding */
       wire [MSB_OUT-MSB_IN-1:0] padding = {(MSB_OUT-MSB_IN){1'b0}};
       wire [MSB_IN-LSB_OUT-1:0] overlap = din[N_BITS_IN-1:LSB_OUT-LSB_IN];
-      /*TODO rounding */
       assign dout = {padding,overlap};
     end /*c*/ 
     /* 
@@ -138,7 +142,7 @@ module convert #(
        output value: MSB         |pppabcd|      LSB
     */
 
-    else if ((MSB_OUT > MSB_IN) && (MSB_OUT > LSB_IN) && (LSB_OUT < MSB_IN) && (LSB_OUT == MSB_IN)) begin:d
+    else if ((MSB_OUT > MSB_IN) && (MSB_OUT > LSB_IN) && (LSB_OUT < MSB_IN) && (LSB_OUT == LSB_IN)) begin:d
       /*TODO sign extension*/
       wire [MSB_OUT-MSB_IN-1:0] padding = {(MSB_OUT-MSB_IN){1'b0}};
       assign dout = {padding,din};
@@ -198,6 +202,9 @@ module convert #(
     */
     else if ((MSB_OUT > MSB_IN) && (MSB_OUT > LSB_IN) && (LSB_OUT < MSB_IN) && (LSB_OUT < LSB_IN)) begin:j
     end /*j*/
+    else
+      assign mode = 5'd0;
+      assign dout = {(N_BITS_OUT){1'b0}};
   endgenerate
 
 endmodule /*convert*/
